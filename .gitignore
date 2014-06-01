@@ -1,0 +1,76 @@
+###Adding libraries 
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(Matrix)
+library(sentiment)
+library(plyr)
+library(ggplot2)
+library(RColorBrewer)
+library(lda)
+library(topicmodels)
+library(RTextTools)
+
+### Ad-hoc code 
+file1 <- read.csv(file.choose(),sep="\t",header=TRUE)
+data <- data.frame(file1)
+data$product_title<-iconv(data$product_title,to="UTF-8")
+data$review_title<-iconv(data$review_title,to="UTF-8")
+data$review_text<-iconv(data$review_text,to="UTF-8")
+
+###Hclust 
+x <- TermDocumentMatrix( Corpus( VectorSource( strings.to.cluster ) ) ) 
+
+###merging all the ASIN 
+mergeddata<-aggregate(x=data, by=list)
+
+###pre-cleaning 
+data$review_text = gsub("[ \t]{2,}", "", data$review_text)
+data$review_text = gsub("^\\s+|\\s+$", "", data$review_text)
+data$review_text = gsub("http\\w+", "", data$review_text)
+
+###tm-cleaning 
+myCorpus <- Corpus(VectorSource(data$review_text))
+myCorpus <- tm_map(myCorpus, removeNumbers)
+myCorpus <- tm_map(myCorpus, removePunctuation)
+myCorpus <- tm_map(myCorpus, tolower)
+myCorpus <- tm_map(myCorpus, stripWhitespace)
+mystopWords <- stopwords("SMART")
+myCorpus <- tm_map(myCorpus, removeWords, stopWords)
+myCorpus <- tm_map(myCorpus, stemDocument)
+inspect(myCorpus[1:3])
+#myCorpus <- tm_map(myCorpus, stemCompletion, dictionary=dictCorpus, lazy=TRUE)
+#inspect(myCorpus[1:3])
+
+##TD-IFD 
+
+myDtm <- TermDocumentMatrix(myCorpus, control = list(minWordLength = 3))
+TermMatrix <- DocumentTermMatrix(myCorpus, control = list(minWordLength = 3))
+tdMatrix <- TermDocumentMatrix(myCorpus, control=list(minWordLength=2, minDocFreq=5))
+tfIdfMatrix <- weightTfIdf(tdMatrix, normalize=TRUE)
+inspect(myDtm[266:270,31:40])
+
+##FindFreqTerms 
+
+findFreqTerms(myDtm, lowfreq=10)
+
+##Find Assoc
+
+findAssocs(myDtm, 'screen', 0.30)
+m <- as.matrix(myDtm)
+v <- sort(rowSums(m), decreasing=TRUE)
+myNames <- names(v)
+k <- which(names(v)=="miners")
+myNames[k] <- "mining"
+d <- data.frame(word=myNames, freq=v)
+wordcloud(d$word, d$freq, min.freq=3)
+
+###LDA implementation 
+matrix <- create_matrix(cbind(as.vector(data$review_title),as.vector(data$review_text)), language="english", removeNumbers=TRUE, stemWords=TRUE, weighting=weightTf)
+
+rowTotals <- apply(TermMatrix, 1, sum)
+TermMatrix <- TermMatrix[rowTotals>0,]
+r
+
+terms(lda)
+topics(lda)
